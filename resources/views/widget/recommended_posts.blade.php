@@ -1,9 +1,9 @@
 @if(!$recommendedPosts->isEmpty())
-    <div class="alert alert-dismissable alert-info"
-         style="background-color: #fff;color:inherit;padding:15px 20px 10px;border-color:#ededed;border-radius: 0">
-        <button style="margin-right: 20px" type="button" class="close" data-dismiss="alert"
-                aria-hidden="true">&times;</button>
-        <label>推荐阅读 :</label>
+    <div class="alert alert-dismissible fade show border-0 shadow" style="background-color: #fff;color:inherit;padding:15px 20px 10px;border-color:#ededed;border-radius: 0">
+        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+        </button>
+        <label>{{__('web.RECOMMENDED_POSTS')}} :</label>
         @foreach($recommendedPosts as $post)
             <div style="padding-top: 5px;padding-bottom: 5px;">
                 <a style="font-size: 1.15em" href="{{ route("post.show",$post->slug) }}">{{ str_limit($post->title,36) }}</a>

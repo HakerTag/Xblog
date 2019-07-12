@@ -25,14 +25,25 @@ Artisan::command('post {action}', function ($action) {
     switch ($action) {
         case 'des2html':
             foreach (\App\Post::all() as $post) {
-                $post->description = $markdownParser->parse($post->description, false);
+                $post->description = $markdownParser->with($post->descriptio)->clean(false)->parse();
                 $this->comment($post->save());
             }
             break;
         case 'content2html':
             foreach (\App\Post::all() as $post) {
-                $post->html_content = $markdownParser->parse($post->content, false);
-                $this->comment($post->save());
+                try {
+                    $post->html_content = $markdownParser->with($post->content)->clean(false)
+                        ->figure(true)
+                        ->gallery(true)
+                        ->toc(true)
+                        ->parse();
+                    $post->setMetaInfo('toc', $markdownParser->getToc());
+                    $post->save();
+                    $this->comment('Converted ' . $post->title);
+                } catch (Exception $e) {
+                    $this->comment($post->title);
+                    $this->comment($e);
+                }
             }
             break;
     }
@@ -51,7 +62,7 @@ Artisan::command('xssProtection', function () {
         $this->comment("----------------------------------------------------------------------------------------\n");
         $this->comment($comment->content . "\n\n");
         $this->comment($comment->html_content . "\n\n");
-        $parsed = $mp->parse($comment->content);
+        $parsed = $mp->with($comment->content)->parse();
         $this->comment($parsed . "\n\n");
         $comment->html_content = $parsed;
         $this->comment('save:' . $comment->save());
@@ -70,7 +81,7 @@ Artisan::command('ip:delete-ub', function () {
     $result = \App\Ip::where('blocked', 0)->delete();
     $this->comment("Delete $result ips.");
     cache()->flush();
-})->describe("delete un verified comments");
+})->describe("delete un blocked ips");
 
 Artisan::command('files:generate-url {disk}', function ($disk) {
     $files = \App\File::all();

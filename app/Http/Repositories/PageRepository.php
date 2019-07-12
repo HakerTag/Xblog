@@ -5,12 +5,12 @@
  * Date: 2016/8/19
  * Time: 17:41
  */
+
 namespace App\Http\Repositories;
 
-use App\Configuration;
 use App\Page;
 use Illuminate\Http\Request;
-use Parsedown;
+use Lufficc\MarkDownParser;
 
 /**
  * Class PageRepository
@@ -19,12 +19,7 @@ use Parsedown;
 class PageRepository extends Repository
 {
     static $tag = 'page';
-    protected $parseDown;
 
-    public function __construct()
-    {
-        $this->parseDown = new Parsedown();
-    }
 
     public function model()
     {
@@ -64,9 +59,10 @@ class PageRepository extends Repository
     public function create(Request $request)
     {
         $this->clearCache();
+        $markDownParser = new MarkDownParser($request->get('content'));
         $page = Page::create(array_merge(
             $request->except('_token'),
-            ['html_content' => $this->parseDown->text($request->get('content'))]
+            ['html_content' => $markDownParser->clean(false)->figure(true)->gallery(true)->parse()]
         ));
 
         $page->saveConfig($request->all());
@@ -77,9 +73,10 @@ class PageRepository extends Repository
     {
         $this->clearCache();
         $page->saveConfig($request->all());
+        $markDownParser = new MarkDownParser($request->get('content'));
         return $page->update(array_merge(
             $request->except('_token'),
-            ['html_content' => $this->parseDown->text($request->get('content'))]
+            ['html_content' => $markDownParser->clean(false)->figure(true)->gallery(true)->parse()]
         ));
     }
 

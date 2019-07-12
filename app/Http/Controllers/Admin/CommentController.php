@@ -7,7 +7,6 @@ use App\Http\Controllers\Controller;
 use App\Comment;
 use App\Http\Repositories\CommentRepository;
 use App\Http\Repositories\PostRepository;
-use App\Http\Requests;
 use App\Scopes\VerifiedCommentScope;
 use Gate;
 use Illuminate\Http\Request;
@@ -32,9 +31,9 @@ class CommentController extends Controller
         if ($comment->trashed()) {
             $comment->restore();
             $this->commentRepository->clearAllCache();
-            return redirect()->route('admin.comments')->with('success', '恢复成功');
+            return redirect()->route('admin.comments')->with('success', __('web.RECOVERY_SUCCESS'));
         }
-        return redirect()->route('admin.comments')->withErrors('恢复失败');
+        return redirect()->route('admin.comments')->withErrors(__('web.RECOVERY_FAIL'));
     }
 
     public function verify($comment_id)
@@ -59,9 +58,14 @@ class CommentController extends Controller
         return Comment::withoutGlobalScopes()->findOrFail($id);
     }
 
-    protected function deleteUnVerifiedComments()
+    protected function deleteUnVerifiedComments(Request $request)
     {
-        $result = Comment::withoutGlobalScope(VerifiedCommentScope::class)->where('status', 0)->forceDelete();
+        $unverified_ids = $request->get('ids', '');
+        $unverified_ids = explode(',', $unverified_ids);
+        $result = Comment::withoutGlobalScopes()
+            ->where('status', 0)
+            ->whereIn('id', $unverified_ids)
+            ->forceDelete();
         $this->commentRepository->clearAllCache();
         return back()->with('success', "Delete $result comments.");
     }

@@ -1,77 +1,57 @@
-@extends('layouts.app')
-@section('title','博客')
-@section('content')
-    <div class="container">
-        <div class="row">
-            <div class="col-md-12">
-                <div class="widget widget-default">
-                    <div class="widget-header">
-                        <h6><i class="fa fa-comments fa-fw"></i>
-                            通知
-                            @if($notifications->isNotEmpty())
-                                <a class="btn btn-info" role="button" style="display: inline;margin-left: 20px"
-                                   href="{{ route('user.readNotification',"all") }}">
-                                    全部已读
-                                </a>
-                            @endif
-                        </h6>
-                    </div>
-                    <div class="widget-body">
-                        @if($notifications->isEmpty())
-                            <h3 class="center-block meta-item">No Notifications</h3>
-                        @else
-                            <table class="table table-striped table-hover table-bordered table-responsive">
-                                <thead>
-                                <tr>
-                                    <th>用户</th>
-                                    <th>Email</th>
-                                    <th>类型</th>
-                                    <th>内容</th>
-                                    <th>IP</th>
-                                    <th>操作</th>
-                                </tr>
-                                </thead>
-                                <tbody>
-                                @foreach($notifications as $notification)
-                                    @if($notification->data)
-                                        <?php $notificationData = $notification->data?>
-                                        <tr class="">
-                                            <td>
-                                                @if($notificationData['user_id'])
-                                                    <a href="{{ route('user.show',$notificationData['username']) }}">{{ $notificationData['username'] }}</a>
-                                                @else
-                                                    {{ $notificationData['username'] }}
-                                                @endif
-                                            </td>
-                                            <td>
-                                                <a href="mailto:{{ $notificationData['email'] }}">{{ $notificationData['email'] }}</a>
-                                            </td>
-                                            <td>
-                                                @if("App\\Notifications\\ReceivedComment" == $notification->type)
-                                                    评论
-                                                @elseif("App\\Notifications\\MentionedInComment" == $notification->type)
-                                                    提到了你
-                                                @elseif("App\\Notifications\\BaseNotification" == $notification->type)
-                                                    基本提醒
-                                                @endif
-                                            </td>
-                                            <td data-toggle="tooltip" data-placement="top"
-                                                title="{{ $notificationData['content'] }}">{!! $notificationData['content'] !!}</td>
-                                            <td>{{ $notificationData['ip_id']?$notificationData['ip_id']:'NONE' }}</td>
-                                            <td>
-                                                <a class="btn btn-info"
-                                                   href="{{ route('user.readNotification',$notification->id) }}">
-                                                    已读
-                                                </a>
-                                            </td>
-                                        </tr>
-                                    @endif
-                                @endforeach
-                                </tbody>
-                            </table>
-                        @endif
-                    </div>
-                </div>
+@extends('user.user')
+@section('title', 'Notifications')
+@section('user-content')
+    <div class="p-3">
+        @php
+            $groupedNotifications = $notifications->groupBy('type');
+        @endphp
+        <ul class="nav nav-tabs mb-3" id="notificationTab" role="tablist">
+            <li class="nav-item">
+                <a class="nav-link active" id="home-tab" data-toggle="tab" href="#received-comment" role="tab" aria-controls="home" aria-selected="true">
+                    {{__('web.COMMENTS')}}
+                    @if(($count = $notifications->where('type',"App\\Notifications\\ReceivedComment")->where('read_at', null)->count()) > 0)
+                        <span class="badge badge-danger">{{ $count }}</span>
+                    @endif
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" id="profile-tab" data-toggle="tab" href="#mentioned-comment" role="tab" aria-controls="profile" aria-selected="false">
+                    {{__('web.MENTIONED_COMMENT')}}
+                    @if(($count = $notifications->where('type',"App\\Notifications\\MentionedInComment")->where('read_at', null)->count()) > 0)
+                        <span class="badge badge-danger">{{ $count }}</span>
+                    @endif
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" id="contact-tab" data-toggle="tab" href="#base-notification" role="tab" aria-controls="contact" aria-selected="false">
+                    {{__('web.BASE_NOTIFICATION')}}
+                    @if(($count = $notifications->where('type',"App\\Notifications\\BaseNotification")->where('read_at', null)->count()) > 0)
+                        <span class="badge badge-danger">{{ $count }}</span>
+                    @endif
+                </a>
+            </li>
+        </ul>
+        <div class="tab-content" id="myTabContent">
+            <div class="tab-pane fade show active" id="received-comment" role="tabpanel">
+                @if($groupedNotifications->has("App\\Notifications\\ReceivedComment"))
+                    @include('user.render-notification', ['notifications'=>$groupedNotifications["App\\Notifications\\ReceivedComment"]])
+                @else
+                    @include('user.render-notification', ['notifications'=>[]])
+                @endif
+            </div>
+            <div class="tab-pane fade" id="mentioned-comment" role="tabpanel">
+                @if($groupedNotifications->has("App\\Notifications\\MentionedInComment"))
+                    @include('user.render-notification', ['notifications'=>$groupedNotifications["App\\Notifications\\MentionedInComment"]])
+                @else
+                    @include('user.render-notification', ['notifications'=>[]])
+                @endif
+            </div>
+            <div class="tab-pane fade" id="base-notification" role="tabpanel">
+                @if($groupedNotifications->has("App\\Notifications\\BaseNotification"))
+                    @include('user.render-notification', ['notifications'=>$groupedNotifications["App\\Notifications\\BaseNotification"]])
+                @else
+                    @include('user.render-notification', ['notifications'=>[]])
+                @endif
             </div>
         </div>
     </div>

@@ -1,11 +1,11 @@
 @extends('layouts.app')
-@section('title','分类 文章')
+@section('title', $name)
 @section('content')
     <div class="container">
         <ol class="breadcrumb">
-            <li><a href="{{ route('post.index') }}">博客</a></li>
-            <li><a href="{{ route('category.index') }}">分类</a></li>
-            <li class="active">{{ $name }}</li>
+            <li class="breadcrumb-item"><a href="{{ route('post.index') }}">{{__('web.BLOG')}}</a></li>
+            <li class="breadcrumb-item"><a href="{{ route('category.index') }}">{{__('web.CLASSIFICATION')}}</a></li>
+            <li class="breadcrumb-item active">{{ $name }}</li>
         </ol>
         <div class="row">
             <div class="col-md-8">

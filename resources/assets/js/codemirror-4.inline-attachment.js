@@ -13,7 +13,8 @@
   var inlineAttachment = function(options, instance) {
     this.settings = inlineAttachment.util.merge(options, inlineAttachment.defaults);
     this.editor = instance;
-    this.filenameTag = '{filename}';
+      this.urlTag = '{url}';
+      this.filenameTag = '{filename}';
     this.lastValue = null;
   };
 
@@ -137,7 +138,7 @@
     /**
      * JSON field which refers to the uploaded file URL
      */
-    jsonFieldName: 'filename',
+    jsonFieldName: 'url',
 
     /**
      * Allowed MIME types
@@ -153,14 +154,14 @@
      * Text which will be inserted when dropping or pasting a file.
      * Acts as a placeholder which will be replaced when the file is done with uploading
      */
-    progressText: '![Uploading file...]()',
+    progressText: '![Uploading image...]()',
 
     /**
      * When a file has successfully been uploaded the progressText
      * will be replaced by the urlText, the {filename} tag will be replaced
      * by the filename that has been returned by the server
      */
-    urlText: "![file]({filename})",
+    urlText: "![{filename}]({url})",
 
     /**
      * Text which will be used when uploading has failed
@@ -233,14 +234,10 @@
 
     // Attach the file. If coming from clipboard, add a default filename (only works in Chrome for now)
     // http://stackoverflow.com/questions/6664967/how-to-give-a-blob-uploaded-as-formdata-a-file-name
-    if (file.name) {
-      var fileNameMatches = file.name.match(/\.(.+)$/);
-      if (fileNameMatches) {
-        extension = fileNameMatches[1];
-      }
+    var remoteFilename = file.name;
+    if(!remoteFilename){
+      remoteFilename = "image-" + Date.now() + "." + extension;
     }
-
-    var remoteFilename = "image-" + Date.now() + "." + extension;
     if (typeof settings.remoteFilename === 'function') {
       remoteFilename = settings.remoteFilename(file);
     }
@@ -303,15 +300,21 @@
    */
   inlineAttachment.prototype.onFileUploadResponse = function(xhr) {
     if (this.settings.onFileUploadResponse.call(this, xhr) !== false) {
-      var result = JSON.parse(xhr.responseText),
-        filename = result[this.settings.jsonFieldName];
+      var result = JSON.parse(xhr.responseText);
+      var url = result[this.settings.jsonFieldName];
+      var filename = 'image';
+      if ('filename' in result){
+          filename = result['filename'];
+      }
+
 
       if (result && filename) {
         var newValue;
         if (typeof this.settings.urlText === 'function') {
           newValue = this.settings.urlText.call(this, filename, result);
         } else {
-          newValue = this.settings.urlText.replace(this.filenameTag, filename);
+            newValue = this.settings.urlText.replace(this.urlTag, url);
+            newValue = newValue.replace(this.filenameTag, filename);
         }
         var text = this.editor.getValue().replace(this.lastValue, newValue);
         this.editor.setValue(text);

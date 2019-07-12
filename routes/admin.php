@@ -26,15 +26,17 @@ Route::post('/upload/file', ['uses' => 'FileController@uploadFile', 'as' => 'upl
  * admin uri
  */
 Route::get('/posts', ['uses' => 'AdminController@posts', 'as' => 'admin.posts']);
-Route::get('/failed-jobs', ['uses' => 'AdminController@failedJobs', 'as' => 'admin.failed-jobs']);
 Route::get('/comments', ['uses' => 'AdminController@comments', 'as' => 'admin.comments']);
 Route::get('/tags', ['uses' => 'AdminController@tags', 'as' => 'admin.tags']);
 Route::get('/users', ['uses' => 'AdminController@users', 'as' => 'admin.users']);
 Route::get('/pages', ['uses' => 'AdminController@pages', 'as' => 'admin.pages']);
 Route::get('/categories', ['uses' => 'AdminController@categories', 'as' => 'admin.categories']);
 Route::get('/images', ['uses' => 'ImageController@images', 'as' => 'admin.images']);
+Route::get('/images-list', ['uses' => 'ImageController@images_list', 'as' => 'admin.images-list']);
 Route::get('/files', ['uses' => 'FileController@files', 'as' => 'admin.files']);
 Route::get('/ips', ['uses' => 'AdminController@ips', 'as' => 'admin.ips']);
+Route::get('/app', ['uses' => 'AppController@index', 'as' => 'admin.app']);
+Route::post('/app/email', ['uses' => 'AppController@sendMail', 'as' => 'admin.app.send-mail']);
 
 /**
  * comment
@@ -55,16 +57,11 @@ Route::post('/post/{post}/config', ['uses' => 'PostController@updateConfig', 'as
 Route::get('/post/download-all', ['uses' => 'PostController@downloadAll', 'as' => 'post.download-all']);
 
 /**
- * tag
- */
-Route::delete('/tag/{tag}', ['uses' => 'TagController@destroy', 'as' => 'tag.destroy']);
-Route::post('/tag', ['uses' => 'TagController@store', 'as' => 'tag.store']);
-
-/**
  * admin resource
  */
 Route::resource('post', 'PostController', ['except' => ['show', 'index']]);
 Route::resource('category', 'CategoryController', ['except' => ['index', 'show', 'create']]);
+Route::resource('tag', 'TagController', ['except' => ['index', 'show', 'create']]);
 Route::resource('page', 'PageController', ['except' => ['show', 'index']]);
 
 /**
@@ -72,6 +69,7 @@ Route::resource('page', 'PageController', ['except' => ['show', 'index']]);
  */
 Route::delete('/ip/{ip}/toggle', ['uses' => 'IpController@toggleBlock', 'as' => 'ip.block']);
 Route::delete('/ip/{ip}', ['uses' => 'IpController@destroy', 'as' => 'ip.delete']);
+Route::delete('/ip', ['uses' => 'IpController@deleteUnBlocked', 'as' => 'ip.delete-unblocked']);
 
 /**
  * failed jobs

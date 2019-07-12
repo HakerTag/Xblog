@@ -5,9 +5,9 @@
  * Date: 2016/8/19
  * Time: 17:41
  */
+
 namespace App\Http\Repositories;
 
-use App\Configuration;
 use App\Post;
 use App\Tag;
 use Carbon\Carbon;
@@ -24,18 +24,7 @@ use Lufficc\MarkDownParser;
 class PostRepository extends Repository
 {
 
-    protected $markDownParser;
-
     static $tag = 'post';
-
-    /**
-     * PostRepository constructor.
-     * @param MarkDownParser $markDownParser
-     */
-    public function __construct(MarkDownParser $markDownParser)
-    {
-        $this->markDownParser = $markDownParser;
-    }
 
     public function model()
     {
@@ -172,15 +161,26 @@ class PostRepository extends Repository
             $request['published_at'] = Carbon::now();
         }
 
+        $markDownParser = new MarkDownParser($request->get('content'));
+        $html_content = $markDownParser->clean(false)
+            ->gallery(true)
+            ->figure(true)
+            ->toc(true)
+            ->parse();
         $post = auth()->user()->posts()->create(
             array_merge(
                 $request->except(['_token', 'description']),
                 [
-                    'html_content' => $this->markDownParser->parse($request->get('content'), false),
-                    'description' => $this->markDownParser->parse($request->get('description'), false),
+                    'html_content' => $html_content,
+                    'description' => $markDownParser->with($request->get('description'))->clean(false)->parse(),
                 ]
             )
         );
+        $toc = $markDownParser->getToc();
+        if (strlen($toc) > 0) {
+            $post->setMetaInfo('toc', $toc);
+            $post->save();
+        }
         $post->tags()->sync($ids);
 
         $post->saveConfig($request->all());
@@ -215,12 +215,20 @@ class PostRepository extends Repository
 
         $post->saveConfig($request->all());
 
+        $markDownParser = new MarkDownParser($request->get('content'));
+        $html_content = $markDownParser->clean(false)
+            ->gallery(true)
+            ->figure(true)
+            ->toc(true)
+            ->parse();
+        $toc = $markDownParser->getToc();
+        $post->setMetaInfo('toc', $toc);
         return $post->update(
             array_merge(
                 $request->except(['_token', 'description']),
                 [
-                    'html_content' => $this->markDownParser->parse($request->get('content'), false),
-                    'description' => $this->markDownParser->parse($request->get('description'), false),
+                    'html_content' => $html_content,
+                    'description' => $markDownParser->with($request->get('description'))->clean(false)->parse(),
                 ]
             ));
     }

@@ -1,22 +1,22 @@
-<div class="widget widget-default">
-    <div class="widget-header"><h6><i class="fa fa-folder fa-fw"></i>分类</h6></div>
-    <ul class="widget-body list-group">
-        @forelse($categories as $category)
-            @if(str_contains(urldecode(request()->getPathInfo()),'category/'.$category->name))
-                <li title="{{ $category->name }}" href="{{ route('category.show',$category->name) }}"
-                    class="list-group-item active">
-                    {{ $category->name }}
-                    <span class="badge">{{ $category->posts_count }}</span>
-                </li>
-            @else
-                <a title="{{ $category->name }}" href="{{ route('category.show',$category->name) }}"
-                   class="list-group-item">
-                    {{ $category->name }}
-                    <span class="badge">{{ $category->posts_count }}</span>
-                </a>
-            @endif
-        @empty
-            <p class="meta-item center-block">No categories.</p>
-        @endforelse
-    </ul>
-</div>
+@if(!$categories->isEmpty())
+    <div class="order-md-2 mb-4">
+        <h5 class="d-flex justify-content-between align-items-center mb-2">
+            <a class="text-muted" href="{{ route('category.index') }}">{{__('web.CLASSIFICATION')}}</a>
+            <span class="badge badge-secondary badge-pill">{{ count($categories) }}</span>
+        </h5>
+        <div class="hot-posts">
+            <ul class="list-group shadow">
+                @foreach($categories as $category)
+                    @php
+                        $is_current = request()->is('category/'.$category->name);
+                    @endphp
+                    <a class="{{ $is_current?'bg-light text-success ':'' }}border-0 list-group-item d-flex justify-content-between list-group-item-action"
+                       href="{{ route('category.show',$category->name) }}" title="{{ $category->name }}">
+                        <h6 class="my-0">{{ $category->name }}</h6>
+                        <span class="text-{{ $is_current?'success':'muted' }}">{{ $category->posts_count }}</span>
+                    </a>
+                @endforeach
+            </ul>
+        </div>
+    </div>
+@endif

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Http\Repositories\UserRepository;
 use App\Http\Requests;
+use App\Http\Requests\RegisterRequest;
 use App\User;
 use Illuminate\Http\Request;
 use Laravel\Socialite\Facades\Socialite;
@@ -45,28 +46,13 @@ class AuthController extends Controller
         return $currentUser->save();
     }
 
-    public function store(Request $request)
+    public function store(RegisterRequest $request)
     {
         if (!session()->has('githubData')) {
             return redirect('login');
         }
 
         $name = $request->get('name');
-        $email = $request->get('email');
-        $this->validate($request, [
-            'name' => 'required|regex:/^[a-zA-Z-_]+$/u|max:16|min:3|unique:users',
-            'email' => 'required|email|max:255|unique:users',
-            'password' => 'required|min:6|confirmed',
-        ], [
-            'name.regex' => "Username can only contains letter,number or -,_",
-            'name.unique' => "Username  '$name'  has been registered,if it is you,then you can login to bind your github account",
-            'email.unique' => "Email  '$email'  has been registered,if it is you,then you can login to bind your github account",
-        ]);
-
-        if (mb_substr_count($request->get('name'), '_') > 1 || mb_substr_count($request->get('name'), '-') > 1) {
-            return back()->withInput()->withErrors("name's '-' and '_' max count is 1.");
-        }
-
         $githubData = session('githubData');
         $user = new User();
         $user->name = $name;
@@ -77,10 +63,10 @@ class AuthController extends Controller
         if ($this->bindGithub($user, $githubData)) {
             auth()->loginUsingId($user->id);
             session()->forget('githubData');
-            return redirect($this->redirect)->with('success', '使用Github注册成功');
+            return redirect($this->redirect)->with('success', __('web.USE_GITHUB_SING_UP_SUCCESS'));
         } else {
             session()->forget('githubData');
-            return redirect($this->redirect)->with('success', '使用Github注册失败');
+            return redirect($this->redirect)->with('success', __('web.USE_GITHUB_SING_UP_FAIL'));
         }
     }
 
@@ -119,9 +105,9 @@ class AuthController extends Controller
                 } /*返回的Github账号没有被绑定，正常绑定*/
                 else {
                     if ($this->bindGithub($currentUser, $this->getDataFromGithubUser($githubUser))) {
-                        return redirect($this->redirect)->with('success', '绑定 Github 成功');
+                        return redirect($this->redirect)->with('success', __('web.BIND_GITHUB_SUCCESS'));
                     }
-                    return redirect($this->redirect)->withErrors('绑定 Github 失败');
+                    return redirect($this->redirect)->withErrors(__('web.BIND_GITHUB_FAIL'));
                 }
             }
         } /*用户没有登陆*/
@@ -129,12 +115,12 @@ class AuthController extends Controller
             /*让绑定的用户直接登陆*/
             if ($user) {
                 auth()->loginUsingId($user->id);
-                return redirect($this->redirect)->with('success', '登录成功');
+                return redirect($this->redirect)->with('success', __('web.LOGIN').__('web.SUCCESS'));
             } /*一个全新的用户来了！！！尝试注册*/
             else {
                 $githubData = $this->getDataFromGithubUser($githubUser);
                 session()->put('githubData', $githubData);
-                return redirect($this->redirect)->route('github.register');
+                return redirect()->route('github.register');
             }
         }
     }

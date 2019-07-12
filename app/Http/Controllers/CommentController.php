@@ -4,7 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Comment;
 use App\Http\Repositories\CommentRepository;
-use App\Http\Requests;
+use function GuzzleHttp\Promise\all;
+use Validator;
 use Gate;
 use Illuminate\Http\Request;
 use XblogConfig;
@@ -27,10 +28,10 @@ class CommentController extends Controller
         if ($this->commentRepository->update($request->get('content'), $comment)) {
             $redirect = request('redirect');
             if ($redirect)
-                return redirect($redirect)->with('success', '修改成功');
-            return back()->with('success', '修改成功');
+                return redirect($redirect)->with('success', __('web.EDIT_SUCCESS'));
+            return back()->with('success',__('web.EDIT_SUCCESS') );
         }
-        return back()->withErrors('修改失败');
+        return back()->withErrors(__('web.EDIT_FAIL'));
     }
 
     public function edit(Comment $comment)
@@ -48,6 +49,7 @@ class CommentController extends Controller
 
     public function store(Request $request)
     {
+//        dd($request->all());
         if (!$request->get('content')) {
             return response()->json(
                 ['status' => 500, 'msg' => 'Comment content must not be empty !']
@@ -59,7 +61,7 @@ class CommentController extends Controller
                     ['status' => 500, 'msg' => 'Username and email must not be empty !']
                 );
             }
-            $pattern = "/^([0-9A-Za-z\\-_\\.]+)@([0-9a-z]+\\.[a-z]{2,3}(\\.[a-z]{2})?)$/i";
+            $pattern = "/^([a-zA-Z0-9_\-\.]+)@([a-zA-Z0-9_\-\.]+)\.([a-zA-Z]{2,5})$/";
             if (!preg_match($pattern, request('email'))) {
                 return response()->json(
                     ['status' => 500, 'msg' => 'An Invalidate Email !']
@@ -67,9 +69,23 @@ class CommentController extends Controller
             }
         }
 
+        $validator = Validator::make($request->only('captcha'), ['captcha' => 'required|captcha']);
+        if ($validator->fails()) {
+            return response()->json(
+                ['status' => 500, 'msg' => 'Captcha incorrect !']
+            );
+        }
+
         if ($comment = $this->commentRepository->create($request)) {
             if ($request->expectsJson()) {
-                return response()->json(['status' => 200, 'msg' => 'success']);
+                return response()->json([
+                    'status' => 200,
+                    'msg' => 'success',
+                    'rendered_html' => view('comment.comment', compact('comment'))->render(),
+                    'comment' => [
+                        'id' => $comment->id,
+                        'reply_id' => $comment->reply_id,
+                    ]]);
             }
             return back()->with('success', 'Success');
         }
@@ -87,9 +103,15 @@ class CommentController extends Controller
         $this->checkPolicy('manager', $comment);
 
         if ($this->commentRepository->delete($comment, $force)) {
-            return back()->with('success', '删除成功');
+            if (request()->expectsJson()) {
+                return response()->json(['status' => 200, 'msg' => 'success']);
+            }
+            return back()->with('success', __('web.REMOVE_SUCCESS'));
         }
-        return back()->withErrors('删除失败');
+        if (request()->expectsJson()) {
+            return response()->json(['status' => 500, 'msg' => __('web.REMOVE_FAIL')]);
+        }
+        return back()->withErrors(__('web.REMOVE_FAIL'));
     }
 
     protected function findComment($id)

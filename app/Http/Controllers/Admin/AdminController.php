@@ -12,9 +12,10 @@ use App\Http\Repositories\PageRepository;
 use App\Http\Repositories\PostRepository;
 use App\Http\Repositories\TagRepository;
 use App\Http\Repositories\UserRepository;
-use App\Http\Requests;
 use App\Ip;
 use App\Page;
+use App\Post;
+use Carbon\Carbon;
 use DB;
 use App\User;
 use Illuminate\Http\Request;
@@ -73,7 +74,23 @@ class AdminController extends Controller
         $info['page_count'] = $this->pageRepository->count();
         $info['image_count'] = $this->imageRepository->count();
         $info['ip_count'] = Ip::count();
-        $response = view('admin.index', compact('info'));
+        $postDetail = Post::select([
+            DB::raw("YEAR(created_at) as year"),
+            DB::raw("MONTH(created_at) as month"),
+            DB::raw('COUNT(id) AS count'),
+        ])->whereBetween('created_at', [Carbon::now()->subYear(1), Carbon::now()])
+            ->groupBy('year', 'month')
+            ->orderBy('year', 'asc')
+            ->orderBy('month', 'asc')
+            ->get()
+            ->toArray();
+        $labels = [];
+        $data = [];
+        foreach ($postDetail as $detail) {
+            array_push($labels, $detail['year'] . '-' . $detail['month']);
+            array_push($data, $detail['count']);
+        }
+        $response = view('admin.index', compact('info', 'labels', 'data'));
         if (($failed_jobs_count = DB::table('failed_jobs')->count()) > 0) {
             $failed_jobs_link = route('admin.failed-jobs');
             $response->withErrors(['failed_jobs' => "You have $failed_jobs_count failed jobs.<a href='$failed_jobs_link'>View</a>"]);
@@ -83,14 +100,16 @@ class AdminController extends Controller
 
     public function settings()
     {
-        return view('admin.settings');
+        $variables = config('configurable_variables');
+        $groups = $variables['groups'];
+        return view('admin.settings', compact('variables', 'groups'));
     }
 
     public function saveSettings(Request $request)
     {
         $inputs = $request->except('_token');
         $this->mapRepository->saveSettings($inputs);
-        return back()->with('success', '保存成功');
+        return back()->with('success', __('web.SAVE_SUCCESS'));
     }
 
     public function posts()
@@ -103,7 +122,10 @@ class AdminController extends Controller
     {
         $comments = Comment::withoutGlobalScopes()->where($request->except(['page']))->orderBy('created_at', 'desc')->paginate(20);
         $comments->appends($request->except('page'));
-        return view('admin.comments', compact('comments'));
+        $unverified_ids = Comment::withoutGlobalScopes()->where('status', 0)->select('id')->get();
+        $unverified_count = count($unverified_ids);
+        $unverified_ids = $unverified_ids->implode('id', ',');
+        return view('admin.comments', compact('comments', 'unverified_ids', 'unverified_count'));
     }
 
     public function tags()
@@ -140,12 +162,6 @@ class AdminController extends Controller
         )->with(['user'])->orderBy('user_id', 'id')->paginate(20);
         $ips->appends($request->except('page'));
         return view('admin.ips', compact('ips'));
-    }
-
-    public function failedJobs()
-    {
-        $failed_jobs = DB::table('failed_jobs')->get();
-        return view('admin.failed_jobs', compact('failed_jobs'));
     }
 
     public function flushFailedJobs()

@@ -1,90 +1,68 @@
 @extends('admin.layouts.app')
-@section('title','图片')
+@section('title','Images('.$image_count.')')
+@section('css')
+    <style>
+        #images.col, [class*="col-"] {
+            padding-right: 0.2rem;
+            padding-left: 0.2rem;
+        }
+
+        .img-container.card {
+            border-radius: 0;
+            border: none;
+            -webkit-box-shadow: 0 3px 1px -2px rgba(0, 0, 0, .2), 0 2px 2px 0 rgba(0, 0, 0, .14), 0 1px 5px 0 rgba(0, 0, 0, .12);
+            box-shadow: 0 3px 1px -2px rgba(0, 0, 0, .2), 0 2px 2px 0 rgba(0, 0, 0, .14), 0 1px 5px 0 rgba(0, 0, 0, .12);
+        }
+
+        .img-container img {
+            transition: .5s ease;
+            backface-visibility: hidden;
+        }
+
+        .img-container:hover img {
+            -webkit-filter: grayscale(65%);
+            filter: grayscale(65%);
+        }
+
+        .img-container:hover .img-overlay {
+            opacity: 1;
+        }
+
+        .img-container .img-overlay {
+            transition: .5s ease;
+            opacity: 0;
+            display: flex;
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            overflow-y: auto;
+            background-color: rgba(0, 0, 0, 0.6);
+            justify-content: center;
+            align-content: center;
+            font-family: "Microsoft YaHei", serif;
+        }
+    </style>
+@endsection
 @section('content')
-    <div class="row">
-        <div class="widget widget-default">
-            <div class="widget-header">
-                <h6><i class="fa fa-file-image-o fa-fw"></i>图片({{ $image_count }})</h6>
-            </div>
-            <div class="widget-body">
-                <form role="form" class="form-horizontal" action="{{ route('upload.image') }}"
-                      datatype="image"
-                      required="required"
-                      enctype="multipart/form-data" method="post">
-                    {{ csrf_field() }}
-                    <div class="form-group">
-                        <label for="image" class="col-xs-2 col-xs-offset-1 control-label">
-                            <i class="fa fa-file-image-o fa-lg fa-fw"></i>
-                        </label>
-                        <div class="col-xs-6">
-                            <input id="image" class="form-control" accept="image/*" type="file" name="image">
-                        </div>
-                        <div class="col-xs-2">
-                            <button type="submit" class="btn btn-primary">
-                                上传
-                            </button>
-                        </div>
-                    </div>
-                </form>
-            </div>
-        </div>
+    <div style="max-width: 750px" class="mx-auto UppyDragDrop mb-3" refresh-image-list="1" uppy-height="360"></div>
+    <div id="images-list">
+        @include('admin.partials.image_list')
     </div>
-    <div class="row">
-        @forelse($images as $image)
-            <div class="col-lg-4 col-md-4 col-sm-6 col-xs-12">
-                <div class="widget widget-default">
-                    <label style="padding: 5px 10px;width: 100%;margin: 0">
-                        {{ $image->name }}
-                    </label>
-                    <div class="js-imgLiquid" style="width: 100% ;height: 250px;">
-                        <img src="{{ getImageViewUrl($image->url,null,250) }}">
-                    </div>
-                    <div class="widget-footer">
-                        <div class="widget-meta">
-                            <button id="clipboard-btn" class="btn btn-default"
-                                    type="button"
-                                    data-clipboard-text="{{ $image->url }}"
-                                    data-toggle="tooltip"
-                                    data-placement="left"
-                                    title="Copied">
-                                <i class="fa fa-copy fa-fw"></i>
-                            </button>
-                            <a  class="btn btn-primary"
-                                    href="{{ $image->url }}"
-                                    target="_blank">
-                                <i class="fa fa-eye fa-fw"></i>
-                            </a>
-                            <button class="btn btn-danger swal-dialog-target"
-                                    data-dialog-msg="确定删除{{ $image->name }}？"
-                                    data-url="{{ route('delete.file').'?key='.$image->key.'&type=image' }}"
-                                    data-key="{{ $image->key }}">
-                                <i class="fa fa-trash-o fa-fw"></i>
-                            </button>
-                            {{ formatBytes($image->size) }}
-                            <i class="fa fa-clock-o fa-fw"></i>
-                            {{ $image->created_at->format('Y-m-d') }}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        @empty
-            <h3 class="center-block meta-item">没有图片</h3>
-        @endforelse
-    </div>
-    @if($images->lastPage() > 1)
-        <div class="row">
-            <div class="col-md-12">
-                {{ $images->links() }}
-            </div>
-        </div>
-    @endif
 @endsection
 @section('script')
-    <script src="//cdn.bootcss.com/clipboard.js/1.5.12/clipboard.min.js"></script>
+    <script src="https://unpkg.com/imagesloaded@4.1.4/imagesloaded.pkgd.min.js"></script>
     <script>
-        new Clipboard('.btn');
-        $('.btn').tooltip({
+        new Clipboard('.btn-clipboard');
+        $('.btn-clipboard').mouseleave(clearTooltip).tooltip({
             trigger: 'click',
+        });
+
+        function clearTooltip(e) {
+            $(e.currentTarget).tooltip('hide');
+        }
+
+        $('#images').imagesLoaded().progress(function () {
+            $('#images').masonry();
         });
     </script>
 @endsection

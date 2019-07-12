@@ -1,6 +1,5 @@
 /vendor
 /node_modules
-/public/storage
 /.idea
 Homestead.yaml
 Homestead.json
@@ -8,16 +7,12 @@ Homestead.json
 _ide_helper.php
 .vscode/
 
-/storage/
+/storage/*.key
+/storage/post
 
-!/themes
-/themes/*
-!/themes/xblog
-
-!/public
-/public/*
-!/public/*.*
-!/public/css/
-!/public/js/
-!/public/build/
-
+/public/css/
+/public/fonts/
+/public/js/
+/public/mix-manifest.json
+/composer.lock
+/package-lock.json

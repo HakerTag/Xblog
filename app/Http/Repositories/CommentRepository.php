@@ -5,9 +5,11 @@
  * Date: 2016/8/19
  * Time: 17:41
  */
+
 namespace App\Http\Repositories;
 
 use App\Comment;
+use App\Notifications\ReceivedComment;
 use App\Scopes\VerifiedCommentScope;
 use Illuminate\Http\Request;
 use Lufficc\Exception\CommentNotAllowedException;
@@ -21,18 +23,15 @@ use Lufficc\Mention;
 class CommentRepository extends Repository
 {
     static $tag = 'comment';
-    protected $markdownParser;
     protected $mention;
 
     /**
      * PostRepository constructor.
      * @param Mention $mention
-     * @param MarkDownParser $markDownParser
      */
-    public function __construct(Mention $mention, MarkDownParser $markDownParser)
+    public function __construct(Mention $mention)
     {
         $this->mention = $mention;
-        $this->markdownParser = $markDownParser;
     }
 
     public function model()
@@ -99,17 +98,23 @@ class CommentRepository extends Repository
             $comment->email = $request->get('email');
             $comment->site = $request->get('site');
         }
-
+        $reply_id = $request->get('reply_id');
+        if ($reply_id) {
+            $comment->reply_id = $reply_id;
+        }
         $content = $request->get('content');
         $comment->ip_id = $request->ip();
         $comment->content = $this->mention->parse($content);
-        $comment->html_content = $this->markdownParser->parse($comment->content);
+        $markdownParser = new MarkDownParser($comment->content);
+        $comment->html_content = $markdownParser->clean(true)->parse();
         $result = $commentable->comments()->save($comment);
+
 
         /**
          * mention user after comment saved
          */
-        $this->mention->mentionUsers($comment, getMentionedUsers($content), $content);
+        getAdminUser()->notify(new ReceivedComment($comment));
+        $this->mention->mentionUsers($comment, getMentionedUsers($content), $comment->html_content);
 
         return $result;
     }
@@ -117,7 +122,8 @@ class CommentRepository extends Repository
     public function update($content, $comment)
     {
         $comment->content = $this->mention->parse($content);
-        $comment->html_content = $this->markdownParser->parse($comment->content);
+        $markdownParser = new MarkDownParser($comment->content);
+        $comment->html_content = $markdownParser->clean(true)->parse();
         $result = $comment->save();
         if ($result)
             $this->clearCache();

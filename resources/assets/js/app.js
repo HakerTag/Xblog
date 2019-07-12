@@ -1,219 +1,201 @@
 /**
  * @author lufficc
  */
+
+require('./boot');
+
 (function ($) {
-    var Xblog = {
+    let Xblog = {
         init: function () {
+            $('[data-toggle="tooltip"]').tooltip();
             this.bootUp();
+            new SmoothScroll("#comments a[href*='#'], .post-detail-content a[href*='#'], .toc a[href*='#']");
         },
         bootUp: function () {
-            console.log('bootUp');
-            loadComments(false, false);
             initComment();
-            initMarkdownTarget();
             initTables();
             autoSize();
             initProjects();
             initDeleteTarget();
+            clipboardCodeSnippets();
             highLightCode();
-            imageLiquid();
+            initMagnificPopup();
         },
     };
 
-    function initDeleteTarget() {
-        $('.swal-dialog-target').append(function () {
-            return "\n" +
-                "<form action='" + $(this).attr('data-url') + "' method='post' style='display:none'>\n" +
-                "   <input type='hidden' name='_method' value='" + ($(this).data('method') ? $(this).data('method') : 'delete') + "'>\n" +
-                "   <input type='hidden' name='_token' value='" + XblogConfig.csrfToken + "'>\n" +
-                "</form>\n"
-        }).click(function () {
-            var deleteForm = $(this).find("form");
-            var method = ($(this).data('method') ? $(this).data('method') : 'delete');
-            var url = $(this).attr('data-url');
-            var data = $(this).data('request-data') ? $(this).data('request-data') : '';
-            var title = $(this).data('dialog-title') ? $(this).data('dialog-title') : '删除';
-            var message = $(this).data('dialog-msg');
-            var type = $(this).data('dialog-type') ? $(this).data('dialog-type') : 'warning';
-            var cancel_text = $(this).data('dialog-cancel-text') ? $(this).data('dialog-cancel-text') : '取消';
-            var confirm_text = $(this).data('dialog-confirm-text') ? $(this).data('dialog-confirm-text') : '确定';
-            var enable_html = $(this).data('dialog-enable-html') == '1';
-            var enable_ajax = $(this).data('enable-ajax') == '1';
-            console.log(data);
-            if (enable_ajax) {
-                swal({
-                        title: title,
-                        text: message,
-                        type: type,
-                        html: enable_html,
-                        showCancelButton: true,
-                        confirmButtonColor: "#DD6B55",
-                        cancelButtonText: cancel_text,
-                        confirmButtonText: confirm_text,
-                        showLoaderOnConfirm: true,
-                        closeOnConfirm: true
-                    },
-                    function () {
-                        $.ajax({
-                            headers: {
-                                'X-CSRF-TOKEN': XblogConfig.csrfToken
-                            },
-                            url: url,
-                            type: method,
-                            data: data,
-                            success: function (res) {
-                                if (res.code == 200) {
-                                    swal({
-                                        title: 'Succeed',
-                                        text: res.msg,
-                                        type: "success",
-                                        timer: 1000,
-                                        confirmButtonText: "OK"
-                                    });
-                                } else {
-                                    swal({
-                                        title: 'Failed',
-                                        text: "操作失败",
-                                        type: "error",
-                                        timer: 1000,
-                                        confirmButtonText: "OK"
-                                    });
-                                }
-                            },
-                            error: function (res) {
-                                swal({
-                                    title: 'Failed',
-                                    text: "操作失败",
-                                    type: "error",
-                                    timer: 1000,
-                                    confirmButtonText: "OK"
-                                });
-                            }
-                        })
-                    });
-            } else {
-                swal({
-                        title: title,
-                        text: message,
-                        type: type,
-                        html: enable_html,
-                        showCancelButton: true,
-                        confirmButtonColor: "#DD6B55",
-                        cancelButtonText: cancel_text,
-                        confirmButtonText: confirm_text,
-                        closeOnConfirm: true
-                    },
-                    function () {
-                        deleteForm.submit();
-                    });
+    function initMagnificPopup() {
+        $('.post-detail-content img').attr('data-mfp-src', function () {
+            return $(this).attr('src')
+        }).magnificPopup({
+            type: 'image', gallery: {
+                enabled: true,
+                navigateByImgClick: true,
             }
         });
     }
 
-    function loadComments(shouldMoveEnd, force) {
-        var container = $('#comments-container');
-        if (force || container.children().length <= 0) {
-            console.log("loading comments");
-            $.ajax({
-                method: 'get',
-                url: container.data('api-url'),
-            }).done(function (data) {
-                container.html(data);
-                initDeleteTarget();
-                highLightCodeOfChild(container);
-                if (shouldMoveEnd) {
-                    moveEnd($('#comment-submit'));
-                }
-            });
+    function clipboardCodeSnippets() {
+        let snippets = document.querySelectorAll('.comment-content pre, .post-detail-content pre');
+        [].forEach.call(snippets, function (snippet) {
+            snippet.firstChild.insertAdjacentHTML('beforebegin', '<button class="clipboard-target btn">Copy</button >');
+        });
+        let clipboardSnippets = new Clipboard('.clipboard-target', {
+            target: function (trigger) {
+                return trigger.nextElementSibling;
+            }
+        });
+        clipboardSnippets.on('success', function (e) {
+            e.clearSelection();
+            showTooltip(e.trigger, 'Copied!')
+        });
+        clipboardSnippets.on('error', function (e) {
+            showTooltip(e.trigger, 'Copy failed!')
+        });
+
+        function showTooltip(target, title) {
+            $(target).tooltip({placement: 'left', trigger: 'manual'}).tooltip('hide')
+                .attr('data-original-title', title)
+                .tooltip('show');
+            $(target).mouseleave(function (e) {
+                $(e.currentTarget).tooltip('hide');
+                $(e.currentTarget).blur();
+            })
         }
     }
 
+    function initDeleteTarget() {
+
+        $('.swal-dialog-target').each(function () {
+            if ($(this).attr('appended-form') == '1') {
+                return;
+            }
+            $(this).attr('appended-form', '1');
+            $(this).append(function () {
+                return "<form action='" + $(this).attr('data-url') + "' method='post' style='display:none'>" +
+                    "<input type='hidden' name='_method' value='" + ($(this).data('method') ? $(this).data('method') : 'delete') + "'>" +
+                    "<input type='hidden' name='_token' value='" + XblogConfig.csrfToken + "'>" +
+                    "</form>"
+            }).click(function () {
+                let deleteForm = $(this).find("form");
+                let data = $(this).data('request-data') ? $(this).data('request-data') : '';
+                let title = $(this).data('dialog-title') ? $(this).data('dialog-title') : '删除';
+                let message = $(this).data('dialog-msg');
+                let type = $(this).data('dialog-type') ? $(this).data('dialog-type') : 'danger';
+                let cancel_text = $(this).data('dialog-cancel-text') ? $(this).data('dialog-cancel-text') : '取消';
+                let confirm_text = $(this).data('dialog-confirm-text') ? $(this).data('dialog-confirm-text') : '确定';
+                dialog({
+                        title: title,
+                        body: message,
+                        type: type,
+                        cancel: cancel_text,
+                        confirm: confirm_text
+                    },
+                    function () {
+                        deleteForm.submit();
+                    });
+            });
+
+        });
+    }
+
+
     function initComment() {
-        var form = $('#comment-form');
-        var submitBtn = form.find('#comment-submit');
-        var commentContent = form.find('#comment-content');
+        $('.comment-form').each(function () {
+            bindCommentFrom($(this));
+        });
+    }
 
-        var username = form.find('input[name=username]');
-        var email = form.find('input[name=email]');
-        var site = form.find('input[name=site]');
+    function bindCommentFrom(form) {
+        let submitBtn = form.find('#comment-submit');
+        let commentContent = form.find('#comment-content');
 
-        if (window.localStorage) {
-            username.val(localStorage.getItem('comment_username') == undefined ? '' : localStorage.getItem('comment_username'));
-            email.val(localStorage.getItem('comment_email') == undefined ? '' : localStorage.getItem('comment_email'));
-            site.val(localStorage.getItem('comment_site') == undefined ? '' : localStorage.getItem('comment_site'));
+        let username = form.find('input[name=username]');
+        let email = form.find('input[name=email]');
+        let site = form.find('input[name=site]');
+        let captcha = form.find('input[name=captcha]');
+        let has_username = username.length > 0;
+
+        if (has_username && window.localStorage) {
+            username.val(localStorage.getItem('comment_username'));
+            email.val(localStorage.getItem('comment_email'));
+            site.val(localStorage.getItem('comment_site'));
         }
 
         form.on('submit', function () {
-            if (username.length > 0) {
-                if ($.trim(username.val()) == '') {
+            if (has_username) {
+                if ($.trim(username.val()) === '') {
                     username.focus();
                     return false;
                 }
-                else if ($.trim(email.val()) == '') {
+                if ($.trim(email.val()) === '') {
                     email.focus();
                     return false;
                 }
             }
 
-            if ($.trim(commentContent.val()) == '') {
+            if ($.trim(commentContent.val()) === '') {
                 commentContent.focus();
                 return false;
             }
-
-            var usernameValue = username.val();
-            var emailValue = email.val();
-            var siteValue = site.val();
+            if ($.trim(captcha.val()) === '') {
+                captcha.focus();
+                return false;
+            }
 
             submitBtn.val('提交中...').addClass('disabled').prop('disabled', true);
+            form.find('#comment_submit_msg').text('').hide();
             $.ajax({
                 method: 'post',
                 url: $(this).attr('action'),
                 headers: {
                     'X-CSRF-TOKEN': XblogConfig.csrfToken
                 },
-                data: {
-                    commentable_id: form.find('input[name=commentable_id]').val(),
-                    commentable_type: form.find('input[name=commentable_type]').val(),
-                    content: commentContent.val(),
-                    username: usernameValue,
-                    email: emailValue,
-                    site: siteValue,
-                },
+                data: form.serialize(),
             }).done(function (data) {
                 if (data.status === 200) {
-                    if (window.localStorage) {
-                        localStorage.setItem('comment_username', usernameValue);
-                        localStorage.setItem('comment_email', emailValue);
-                        localStorage.setItem('comment_site', siteValue);
+                    if (has_username && window.localStorage) {
+                        let usernameValue = username.val();
+                        let emailValue = email.val();
+                        let siteValue = site.val();
+                        if (usernameValue)
+                            localStorage.setItem('comment_username', usernameValue);
+                        if (emailValue)
+                            localStorage.setItem('comment_email', emailValue);
+                        if (siteValue)
+                            localStorage.setItem('comment_site', siteValue);
                     }
                     username.val('');
                     email.val('');
                     site.val('');
+                    captcha.val('');
                     commentContent.val('');
-                    form.find('#comment_error_msg').text('');
-                    loadComments(true, true);
+                    form.find('#comment_submit_msg').hide();
+                    if (data.comment.reply_id) {
+                        $('#comment-' + data.comment.reply_id + ' > .comment-info > .comment-content').append(data.rendered_html);
+                    } else {
+                        $('#comments-container').append(data.rendered_html);
+                    }
+                    initDeleteTarget();
+                    highLightCodeOfChild($('#comments-container'));
+                    if ($('#comment-' + data.comment.id).length > 0) {
+                        setTimeout(function () {
+                            let scroll = new SmoothScroll();
+                            scroll.animateScroll(document.querySelector('#comment-' + data.comment.id));
+                        }, 500)
+                    }
+                    form.find('#comment_submit_msg').attr('class', 'text-success').text('Thanks for your comment! It will show on the site once it has been approve.');
                 } else {
-                    form.find('#comment_error_msg').text(data.msg);
+                    form.find('#comment_submit_msg').attr('class', 'text-danger').text(data.msg);
                 }
+                form.find('#comment_submit_msg').show();
+            }).fail(function () {
+                form.find('#comment_submit_msg').attr('class', 'text-danger').text('Internal Server Error.');
+                form.find('#comment_submit_msg').show();
             }).always(function () {
                 submitBtn.val("回复").removeClass('disabled').prop('disabled', false);
+                form.find('#captcha').attr('src', '/captcha/' + XblogConfig.captcha_config + '?' + Math.random());
             });
             return false;
-        });
-    }
-
-    function initMarkdownTarget() {
-        $('.markdown-target').each(function (i, element) {
-            element.innerHTML =
-                marked($(element).data("markdown"), {
-                    renderer: new marked.Renderer(),
-                    gfm: true,
-                    tables: true,
-                    breaks: false,
-                    pedantic: false,
-                    smartLists: true,
-                    smartypants: false,
-                });
         });
     }
 
@@ -225,29 +207,20 @@
 
     function highLightCodeOfChild(parent) {
         $('pre code', parent).each(function (i, block) {
-            console.log(block);
             hljs.highlightBlock(block);
         });
     }
 
     function initTables() {
-        $('table').addClass('table table-bordered table-responsive');
+        $('.post-detail-content table').addClass('table table-bordered');
     }
 
     function autoSize() {
         autosize($('.autosize-target'));
     }
 
-    function imageLiquid() {
-        $(".js-imgLiquid").imgLiquid({
-            fill: true,
-            horizontalAlign: "center",
-            verticalAlign: "top"
-        });
-    }
-
     function initProjects() {
-        var projects = $('.projects');
+        let projects = $('.projects');
         if (projects.length > 0) {
             $.get('https://api.github.com/users/' + XblogConfig.github_username + '/repos?type=owner',
                 function (repositories) {
@@ -263,46 +236,21 @@
                         return repo.description != null;
                     });
                     repositories.forEach(function (repo) {
-                        var repoTemplate = $('#repo-template').html();
-                        var item = repoTemplate.replace(/\[(.*?)\]/g, function () {
+                        let repoTemplate = $('#repo-template').html();
+                        let item = repoTemplate.replace(/\[(.*?)\]/g, function () {
                             return eval(arguments[1]);
                         });
                         projects.append(item)
-                    })
+                    });
+                    projects.attr('data-masonry', '{ "itemSelector": ".col", "columnWidth":".col" }');
+                    projects.masonry();
                 });
         }
     }
 
+    Xblog.bindCommentFrom = bindCommentFrom;
     window.Xblog = Xblog;
 })(jQuery);
 $(document).ready(function () {
     Xblog.init();
 });
-function replySomeone(username) {
-    var commentContent = $("#comment-content");
-    var oldContent = commentContent.val();
-    prefix = "@" + username + " ";
-    var newContent = '';
-    if (oldContent.length > 0) {
-        newContent = oldContent + "\n" + prefix;
-    } else {
-        newContent = prefix
-    }
-    commentContent.focus();
-    commentContent.val(newContent);
-    moveEnd(commentContent);
-}
-
-var moveEnd = function (obj) {
-    obj.focus();
-    var len = obj.value === undefined ? 0 : obj.value.length;
-
-    if (document.selection) {
-        var sel = obj.createTextRange();
-        sel.moveStart('character', len);
-        sel.collapse();
-        sel.select();
-    } else if (typeof obj.selectionStart == 'number' && typeof obj.selectionEnd == 'number') {
-        obj.selectionStart = obj.selectionEnd = len;
-    }
-};

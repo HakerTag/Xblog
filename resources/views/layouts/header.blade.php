@@ -1,43 +1,55 @@
-@if(isset($background_image) && $background_image)
+<?php
+$use_post_cover_img = false;
+$header_img_url = '';
+if (isset($post) && $post->cover_img) {
+    $use_post_cover_img = true;
+    $header_img_url = $post->cover_img;
+}
+if (!$use_post_cover_img) {
+    $header_img_url = isset($header_bg_image) && $header_bg_image ? $header_bg_image : '';
+    //use dynamic image url
+    if (isset($header_image_provider) && $header_image_provider != 'none') {
+        $header_img_url = isset($dynamic_header_bg_image) && $dynamic_header_bg_image ? $dynamic_header_bg_image : $header_img_url;
+    }
+}
+?>
+@if($header_img_url)
     <style>
-        @media screen and (min-width: 768px) {
-            .main-header {
-                background: url("{{ $background_image }}") no-repeat center center;
-                background-size: 100% auto;
-                position: static;
-            }
+        .main-header {
+            background: url("{{ $header_img_url }}") no-repeat center center;
+            background-size: cover;
         }
     </style>
 @endif
-<header class="main-header">
-    <div class="container-fluid" style="margin-top: -15px">
-        <nav class="navbar site-navbar" role="navigation">
-            <div class="navbar-header">
-                <button type="button" class="navbar-toggle collapsed" data-toggle="collapse"
-                        data-target="#blog-navbar-collapse">
-                    <span class="sr-only">Toggle navigation</span>
-                    <span class="icon-bar"></span>
-                    <span class="icon-bar"></span>
-                    <span class="icon-bar"></span>
-                </button>
-                <a href="{{ route('post.index') }}"
-                   class="navbar-brand">{{ $author or 'Blog' }}</a>
-            </div>
-            <div class="collapse navbar-collapse fix-top" id="blog-navbar-collapse">
-                <ul class="nav navbar-nav">
-                    <li><a class="menu-item" href="{{ route('achieve') }}">归档</a></li>
+<header class="main-header bg-placeholder">
+    <div class="container-fluid">
+        <nav class="navbar navbar-dark navbar-expand-lg">
+            <a href="{{ route('post.index') }}" id="blog-navbar-brand" class="navbar-brand">
+                {!! $blog_brand or 'Blog' !!}
+            </a>
+            <button type="button" class="navbar-toggler" data-toggle="collapse" data-target="#blog-navbar-collapse">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="navbar-collapse collapse" id="blog-navbar-collapse">
+                <ul class="navbar-nav">
+                    <li class="nav-item"><a class="nav-link" href="{{ route('achieve') }}">{{__('web.ARCHIVE')}}</a></li>
                     @if(XblogConfig::getValue('github_username'))
-                        <li><a class="menu-item" href="{{ route('projects') }}">项目</a></li>
+                        <li class="nav-item"><a class="nav-link" href="{{ route('projects') }}">{{__('web.ITEM')}}</a></li>
                     @endif
                     @foreach($pages as $page)
-                        <li><a class="menu-item"
-                               href="{{ route('page.show',$page->name) }}">{{ $page->display_name }}</a></li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ route('page.show',$page->name) }}">{{ $page->display_name }}</a>
+                        </li>
                     @endforeach
                 </ul>
-                <ul class="nav navbar-nav navbar-right blog-navbar">
+                <ul class="nav navbar-nav ml-auto justify-content-end">
+                    <form class="form-inline" role="search" method="get" action="{{ route('search') }}">
+                        <input type="text" class="form-control" name="q" placeholder="{{__('web.SEARCH')}}" required>
+                    </form>
                     @if(Auth::check())
-                        <li class="dropdown">
-                            <a href="#" class="dropdown-toggle" data-toggle="dropdown">
+                        <li class="nav-item dropdown">
+                            <a href="#" class="nav-link dropdown-toggle" id="navbarDropdownMenuLink"
+                               data-toggle="dropdown">
                                 <?php
                                 $user = auth()->user();
                                 $unreadNotificationsCount = $user->unreadNotifications->count();
@@ -48,45 +60,50 @@
                                 {{ $user->name }}
                                 <span class="caret"></span>
                             </a>
-                            <ul class="dropdown-menu" role="menu">
-                                <li><a href="{{ route('user.show',auth()->user()->name) }}">个人中心</a></li>
+                            <div class="dropdown-menu" aria-labelledby="navbarDropdownMenuLink">
+                                <a class="dropdown-item" href="{{ route('user.show', $user->name) }}">{{__('web.ACCOUNT_CENTER')}}</a>
                                 @if(isAdmin(Auth::user()))
-                                    <li><a href="{{ route('admin.index') }}">后台管理</a></li>
+                                    <a class="dropdown-item" href="{{ route('admin.index') }}">{{__('web.WEB_CONSOLE')}}</a>
                                 @endif
-                                <li><a href="{{ route('user.notifications') }}">
-                                        <?php
-                                        $user = auth()->user();
-                                        $unreadNotificationsCount = $user->unreadNotifications->count();
-                                        ?>
-                                        @if($unreadNotificationsCount)
-                                            <span class="badge required">{{ $unreadNotificationsCount }}</span>
-                                        @endif
-                                        通知中心
-                                    </a></li>
-                                <li class="divider"></li>
-                                <li><a href="{{ url('/logout') }}" onclick="event.preventDefault();
-                                                 document.getElementById('logout-form').submit();">
-                                        退出登录
-                                    </a>
-                                </li>
-                                <form id="logout-form" action="{{ url('/logout') }}" method="POST"
-                                      style="display: none;">
+                                <a class="dropdown-item" href="{{ route('user.notifications') }}">
+                                    <?php
+                                    $user = auth()->user();
+                                    $unreadNotificationsCount = $user->unreadNotifications->count();
+                                    ?>
+                                    @if($unreadNotificationsCount)
+                                        <span class="badge required">{{ $unreadNotificationsCount }}</span>
+                                    @endif
+                                    {{__('web.NOTIFICATION')}}
+                                </a>
+                                <a class="dropdown-item" href="{{ url('/logout') }}" onclick="event.preventDefault();document.getElementById('logout-form').submit();">
+                                    {{__('web.LOGOUT')}}
+                                </a>
+                                <form id="logout-form" action="{{ url('/logout') }}" method="POST" style="display: none;">
                                     {{ csrf_field() }}
                                 </form>
-                            </ul>
+                            </div>
                         </li>
                     @else
-                        <li><a href="{{ url('login') }}">登录</a></li>
-                        <li><a href="{{ url('register') }}">注册</a></li>
+                        {{--<li class="nav-item"><a class="nav-link" href="{{ url('login') }}">{{__('web.LOGIN')}}</a></li>--}}
+                        {{--<li class="nav-item"><a class="nav-link" href="{{ url('register') }}">{{__('web.SIGN_UP')}}</a></li>--}}
                     @endif
+
                 </ul>
-                <form class="navbar-form navbar-right" role="search" method="get" action="{{ route('search') }}">
-                    <input type="text" class="form-control" name="q" placeholder="搜索" required>
-                </form>
             </div>
         </nav>
     </div>
-    <div class="container-fluid">
-        <div class="description">{{ $description or 'Stay Hungry. Stay Foolish.' }}</div>
+    <div class="header-wrapper">
+        @if($use_post_cover_img)
+            <div class="container mt-3">
+                <div class="row justify-content-center">
+                    <div class="col-md-10 col-sm-12">
+                        <h1 class="header-title">{{ $post->title }}</h1>
+                        <div class="header-desc">{!! $post->description !!}</div>
+                    </div>
+                </div>
+            </div>
+        @elseif(isset($site_header_title) && $site_header_title)
+            <h2 class="site-header-title">{{ $site_header_title }}</h2>
+        @endif
     </div>
 </header>

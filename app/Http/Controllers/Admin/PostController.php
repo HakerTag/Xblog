@@ -47,6 +47,9 @@ class PostController extends Controller
 
     public function create()
     {
+        if ($this->categoryRepository->count() <= 0) {
+            return redirect()->route('admin.categories')->withErrors(__('web.PLEASE_CREATE_CATEGORY'));
+        }
         return view('admin.post.create',
             [
                 'categories' => $this->categoryRepository->getAll(),
@@ -58,11 +61,18 @@ class PostController extends Controller
     public function store(Request $request)
     {
         $this->validatePostForm($request);
+        $post = $this->postRepository->create($request);
 
-        if ($this->postRepository->create($request))
-            return redirect('admin/posts')->with('success', '文章' . $request['name'] . '创建成功');
-        else
-            return redirect('admin/posts')->withErrors('文章' . $request['name'] . '创建失败');
+        if ($post) {
+            if ($post->isPublished()) {
+                $link = route('post.show', $post->slug);
+            } else {
+                $link = route('post.preview', $post->slug);
+            }
+            return redirect('admin/posts')->with('success', __('web.ARTICLE') . "<a href='$link'>$post->title</a>" . __('web.CREATE_SUCCESS'));
+        } else {
+            return redirect('admin/posts')->withErrors(__('web.ARTICLE') . $request['name'] . __('web.CREATE_FAIL'));
+        }
     }
 
     public function preview($slug)
@@ -78,20 +88,24 @@ class PostController extends Controller
     {
         $post = Post::withoutGlobalScopes()->find($id);
         if ($post->trashed()) {
-            return back()->withErrors($post->title . '发布失败，请先恢复删除');
+            return back()->withErrors($post->title . __('web.PUBLISH_FAIL_REMOVE'));
         }
         $this->clearAllCache();
         if ($post->status == 0) {
             $post->status = 1;
             $post->published_at = Carbon::now();
-            if ($post->save())
-                return back()->with('success', $post->title . '发布成功');
+            if ($post->save()) {
+                $link = $this->getPostLink($post);
+                return back()->with('success', "<a href='$link'>$post->title</a> " . __('web.PUBLISH_SUCCESS'));
+            }
         } else if ($post->status == 1) {
             $post->status = 0;
-            if ($post->save())
-                return back()->with('success', $post->title . '撤销发布成功');
+            if ($post->save()) {
+                $link = $this->getPostLink($post);
+                return back()->with('success', "<a href='$link'>$post->title</a> " . __('web.REVOKE_PUBLISH_SUCCESS'));
+            }
         }
-        return back()->withErrors($post->title . '操作失败');
+        return back()->withErrors($post->title . __('web.OPERATING_FAIL'));
     }
 
 
@@ -118,9 +132,10 @@ class PostController extends Controller
         $this->validatePostForm($request, true);
 
         if ($this->postRepository->update($request, $post)) {
-            return redirect('admin/posts')->with('success', '文章' . $request['name'] . '修改成功');
+            $link = $this->getPostLink($post);
+            return redirect('admin/posts')->with('success', "<a href='$link'>$post->title</a> " . __('web.EDIT_SUCCESS'));
         } else
-            return redirect('admin/posts')->withErrors('文章' . $request['name'] . '修改失败');
+            return redirect('admin/posts')->withErrors(__('web.ARTICLE') . $request['name'] . __('web.EDIT_FAIL'));
     }
 
     public function download($id)
@@ -137,7 +152,7 @@ class PostController extends Controller
 
     public function downloadAll()
     {
-        $path = storage_path('post' . DIRECTORY_SEPARATOR . 'all.zip');
+        $path = storage_path('post' . DIRECTORY_SEPARATOR . 'posts.zip');
         if (File::exists($path)) {
             File::delete($path);
         }
@@ -151,15 +166,17 @@ class PostController extends Controller
 
     private function getPostContent(Post $post)
     {
-        $info = "title: " . $post->title;
-        $info = $info . "\ndate: " . $post->created_at->format('Y-m-d H:i');
-        $info = $info . "\npermalink: " . $post->slug;
+        $info = "---\ntitle: " . $post->title;
+        $info = $info . "\ncreated_at: " . $post->created_at;
+        $info = $info . "\nslug: " . $post->slug;
         $info = $info . "\ncategory: " . $post->category->name;
-        $info = $info . "\ntags:\n";
-        foreach ($post->tags as $tag) {
-            $info = $info . "- $tag->name\n";
+        if ($post->tags) {
+            $info = $info . "\ntags:\n";
+            foreach ($post->tags as $tag) {
+                $info = $info . "  - $tag->name\n";
+            }
         }
-        $info = $info . "---\n\n" . $post->content;
+        $info = $info . "\n---\n\n" . $post->content;
         return $info;
     }
 
@@ -169,9 +186,10 @@ class PostController extends Controller
         if ($post->trashed()) {
             $post->restore();
             $this->clearAllCache();
-            return redirect()->route('admin.posts')->with('success', '恢复成功');
+            $link = $this->getPostLink($post);
+            return redirect()->route('admin.posts')->with('success', "<a href='$link'>$post->title</a>" . __('web.RECOVERY_SUCCESS'));
         }
-        return redirect()->route('admin.posts')->withErrors('恢复失败');
+        return redirect()->route('admin.posts')->withErrors(__('web.RECOVERY_FAIL'));
     }
 
 
@@ -189,16 +207,16 @@ class PostController extends Controller
         }
         if ($result) {
             $this->clearAllCache();
-            return redirect($redirect)->with('success', '删除成功');
+            return redirect($redirect)->with('success', __('web.REMOVE'). $post->title.__('web.SUCCESS'));
         } else
-            return redirect($redirect)->withErrors('删除失败');
+            return redirect($redirect)->withErrors(__('web.REMOVE_FAIL'));
     }
 
     private function validatePostForm(Request $request, $update = false)
     {
         $v = [
+            'cover_img' => 'nullable|url',
             'title' => 'required',
-            'description' => 'required',
             'category_id' => 'required',
             'content' => 'required',
         ];
@@ -216,7 +234,17 @@ class PostController extends Controller
     {
         $post = Post::withoutGlobalScopes()->findOrFail($id);
         if ($post->saveConfig($request->all()))
-            return $this->succeedJsonMessage('Update configure successfully');
-        return $this->failedJsonMessage('Update Configure failed');
+            return back()->withSuccess('Update configure successfully');
+        return back()->withErrors('Update Configure failed');
+    }
+
+    private function getPostLink(Post $post)
+    {
+        if ($post->isPublished()) {
+            $link = route('post.show', $post->slug);
+        } else {
+            $link = route('post.preview', $post->slug);
+        }
+        return $link;
     }
 }
